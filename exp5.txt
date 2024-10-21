@@ -1,0 +1,172 @@
+import java.io.*;
+import java.sql.*;
+
+class ReservationSystem {
+    String name, address, sex, fname, to, from;
+    int fno, ppno, nseats = 0, age, fnno;
+
+    // Method to connect to the database
+    private Connection connect() throws SQLException {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");  // Use the correct JDBC driver
+            return DriverManager.getConnection("jdbc:mysql://localhost:3306/yourDB", "username", "password");
+        } catch (ClassNotFoundException e) {
+            throw new SQLException("Driver not found");
+        }
+    }
+
+    // Method to display train details
+    void details() {
+        try (Connection con = connect();
+             Statement st = con.createStatement();
+             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
+
+            System.out.println("Enter the train number:");
+            fno = Integer.parseInt(reader.readLine());
+            String query = "SELECT * FROM train WHERE fno = " + fno;
+            ResultSet rs = st.executeQuery(query);
+
+            if (rs.next()) {
+                System.out.println("Train Number: " + rs.getInt(1));
+                System.out.println("Train Name: " + rs.getString(2));
+                System.out.println("Train From: " + rs.getString(3));
+                System.out.println("Train To: " + rs.getString(4));
+                System.out.println("Available Seats: " + rs.getInt(5));
+            } else {
+                System.out.println("No train found with the given number.");
+            }
+            rs.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    // Method for train reservation
+    void reservation() {
+        try (Connection con = connect();
+             Statement st = con.createStatement();
+             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
+
+            System.out.println("Enter the passenger name:");
+            name = reader.readLine();
+            System.out.println("Enter the passenger number:");
+            ppno = Integer.parseInt(reader.readLine());
+            System.out.println("Enter the address:");
+            address = reader.readLine();
+            System.out.println("Enter the passenger age:");
+            age = Integer.parseInt(reader.readLine());
+            System.out.println("Enter the passenger sex:");
+            sex = reader.readLine();
+            System.out.println("Enter the train number:");
+            fnno = Integer.parseInt(reader.readLine());
+
+            String query = "SELECT * FROM train WHERE fno = " + fnno;
+            ResultSet rs = st.executeQuery(query);
+
+            if (rs.next()) {
+                fno = rs.getInt(1);
+                fname = rs.getString(2);
+                from = rs.getString(3);
+                to = rs.getString(4);
+                System.out.println("Enter the number of seats to reserve:");
+                nseats = Integer.parseInt(reader.readLine());
+
+                int availableSeats = rs.getInt(5);
+                System.out.println("Number of seats available: " + availableSeats);
+
+                if (availableSeats >= nseats) {
+                    int updatedSeats = availableSeats - nseats;
+                    st.executeUpdate("UPDATE train SET seats = " + updatedSeats + " WHERE fno = " + fnno);
+
+                    String insertQuery = "INSERT INTO passenger (name, ppno, address, age, sex, fno, fname, from, to, nseats) " +
+                                         "VALUES ('" + name + "', '" + ppno + "', '" + address + "', '" + age + "', '" + sex + "', " +
+                                         "'" + fno + "', '" + fname + "', '" + from + "', '" + to + "', " + nseats + ")";
+                    st.executeUpdate(insertQuery);
+                    System.out.println("Reservation successful!");
+                } else {
+                    System.out.println("Not enough seats available.");
+                }
+            } else {
+                System.out.println("Train not found.");
+            }
+            rs.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    // Method for cancellation
+    void cancel() {
+        try (Connection con = connect();
+             Statement st = con.createStatement();
+             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
+
+            System.out.println("Enter the passenger number:");
+            int ppno1 = Integer.parseInt(reader.readLine());
+
+            String query = "SELECT * FROM passenger WHERE ppno = " + ppno1;
+            ResultSet rs = st.executeQuery(query);
+
+            if (rs.next()) {
+                int reservedSeats = rs.getInt(10);
+                fno = rs.getInt(6);
+                System.out.println("Train number is: " + fno);
+                System.out.println("Reserved seats: " + reservedSeats);
+
+                st.executeUpdate("DELETE FROM passenger WHERE ppno = " + ppno1);
+                System.out.println("Reservation cancelled.");
+
+                // Updating the seat count in the train
+                String seatQuery = "SELECT * FROM train WHERE fno = " + fno;
+                rs = st.executeQuery(seatQuery);
+
+                if (rs.next()) {
+                    int availableSeats = rs.getInt(5);
+                    int updatedSeats = availableSeats + reservedSeats;
+                    st.executeUpdate("UPDATE train SET seats = " + updatedSeats + " WHERE fno = " + fno);
+                    System.out.println("Seats updated.");
+                }
+            } else {
+                System.out.println("Passenger not found.");
+            }
+            rs.close();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+}
+
+public class TrainReservation {
+    public static void main(String[] args) throws IOException {
+        ReservationSystem rs = new ReservationSystem();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+        int choice = 0;
+
+        while (choice != 4) {
+            System.out.println("\nONLINE RESERVATION SYSTEM");
+            System.out.println("1 -> Train Details");
+            System.out.println("2 -> Reservation");
+            System.out.println("3 -> Cancellation");
+            System.out.println("4 -> Exit");
+            System.out.print("Enter your choice: ");
+            choice = Integer.parseInt(reader.readLine());
+
+            switch (choice) {
+                case 1:
+                    rs.details();
+                    break;
+                case 2:
+                    rs.reservation();
+                    break;
+                case 3:
+                    rs.cancel();
+                    break;
+                case 4:
+                    System.out.println("Exiting...");
+                    break;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+}
